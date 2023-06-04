@@ -46,25 +46,46 @@ mkdir index
 mkdir align
 ```
 ## 2.4 generate index for mapping
+```bash
+mamba install -c bioconda bowtie2 # tested with 2.5.1
 bowtie2-build k39/platanus_k39_contig.fa index/platanus_k39
 bowtie2-build k49/platanus_k49_contig.fa index/platanus_k49
 bowtie2-build k63/platanus_k63_contig.fa index/platanus_k63
 bowtie2-build spades/scaffolds.fasta index/spades
+```
 ## 2.5 mapping reads on assembly results
-bowtie2 -x index/platanus_k39 -1 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R1_001.fastq -2 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R2_001.fastq -S align/platanus_k39.sam
-bowtie2 -x index/platanus_k49 -1 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R1_001.fastq -2 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R2_001.fastq -S align/platanus_k49.sam
-bowtie2 -x index/platanus_k63 -1 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R1_001.fastq -2 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R2_001.fastq -S align/platanus_k63.sam
-bowtie2 -x index/spades -1 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R1_001.fastq -2 /home/artem/NGSCourse/2020/assembly/reads/7_S4_L001_R2_001.fastq -S align/spades.sam
-## 2.6 prepare environment for ALE
+```bash
+bowtie2 -x index/platanus_k39 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k39.sam #88.02% overall alignment rate
+bowtie2 -x index/platanus_k49 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k49.sam #89.38% overall alignment rate
+bowtie2 -x index/platanus_k63 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k63.sam #88.60% overall alignment rate
+bowtie2 -x index/spades -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/spades.sam #90.81% overall alignment rate
+```
+## 2.6 prepare environment for ALE  
+Here is the [documentation](https://portal.nersc.gov/dna/RD/Adv-Seq/ALE-doc/) for ALE
+```bash
 mkdir ALE_results
+```
 ## 2.7 run ALE on platanus results with parameter k=39
-/home/artem/soft/ALE-master/ALE-master/src/ALE align/platanus_k39.sam k39/platanus_k39_contig.fa ALE_results/platanus_k39.ale
+```bash
+git clone https://github.com/sc932/ALE.git # get latest ALE 
+cd ALE/src
+make # build ALE
+cd ../../genome_assembly
+../ALE/src/ALE align/platanus_k39.sam k39/platanus_k39_contig.fa ALE_results/platanus_k39.ale #Total ALE Score: -2308412.023487
+```
 ## 2.8 run ALE on platanus results with parameter k=49
-/home/artem/soft/ALE-master/ALE-master/src/ALE align/platanus_k49.sam k49/platanus_k49_contig.fa ALE_results/platanus_k49.ale
+```bash
+../ALE/src/ALE align/platanus_k49.sam k49/platanus_k49_contig.fa ALE_results/platanus_k49.ale #Total ALE Score: -2047680.789728
+```
 ## 2.9 run ALE on platanus results with parameter k=63
-/home/artem/soft/ALE-master/ALE-master/src/ALE align/platanus_k63.sam k63/platanus_k63_contig.fa ALE_results/platanus_k63.ale
+```bash
+../ALE/src/ALE align/platanus_k63.sam k63/platanus_k63_contig.fa ALE_results/platanus_k63.ale #Total ALE Score: -2104810.141290
+```
 ## 2.10 run ALE on spades results
-/home/artem/soft/ALE-master/ALE-master/src/ALE align/spades.sam spades/scaffolds.fasta ALE_results/spades.ale
-
-Try to improve assembly by using platanus assembler. Send me quast results, ale results and used platanus parameters for additional assemblies by email or telegram.
+```bash
+../ALE/src/ALE align/spades.sam spades/scaffolds.fasta ALE_results/spades.ale #Total ALE Score: -2301561.952032
+```
+**Try to improve assembly by using platanus assembler. Send me quast results, ale results and used platanus parameters for additional assemblies by email or telegram.**
 My email: artem.kasianov@gmail.com
+# improving assembly using platanus assembler
+Change parameters?

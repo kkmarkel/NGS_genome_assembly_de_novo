@@ -89,3 +89,74 @@ cd ../../genome_assembly
 My email: artem.kasianov@gmail.com
 # improving assembly using platanus assembler
 Change parameters?
+
+Сначала решила запустить platanus с дефолтным значением initial k-mer size (-k) = 32
+```bash
+./platanus assemble -s 0 -k 32 -o genome_assembly/k32/platanus_k32 -f 7_S4_L001_R1_001.fastq 7_S4_L001_R2_001.fastq
+```
+Соберём статистику
+```bash
+quast.py -o assembly_analysis/platanus_spades -m 0 --threads 1 k32/platanus_k32_contig.fa k39/platanus_k39_contig.fa k49/platanus_k49_contig.fa k63/platanus_k63_contig.fa spades/scaffolds.fasta
+```
+Получилось увеличить N50 (до 335), total length (до 8199) - хотя всё равно меньше, чем в SPAdes; уменьшить количество контигов до 41.  
+Вообще, судя по статьям, SPAdes может собирать лучше, но при этом имеет большую вероятность ошибок, чем platanus (т.е. platanus более аккуратный)  
+
+Решила остановиться на k32 и попробовать сменить другие параметры.  
+step size of k-mer extension - сменим на 10, а то раньше пробовали вообще с 0 (а вот в [Platanus-allee](http://platanus.bio.titech.ac.jp/platanus2) вообще сделали дефолтными 20)  
+```bash
+
+./platanus assemble -s 10 -k 32 -o genome_assembly/k32_s10/platanus_k32_s10 -f 7_S4_L001_R1_001.fastq 7_S4_L001_R2_001.fastq
+quast.py -o assembly_analysis/platanus_spades -m 0 --threads 1 k32_s10/platanus_k32_s10_contig.fa k32/platanus_k32_contig.fa k39/platanus_k39_contig.fa k49/platanus_k49_contig.fa k63/platanus_k63_contig.fa spades/scaffolds.fasta
+```
+=> N50 (=489) и количество контигов (=14) стали классными, а вот total length поплохела (=5830). C
+
+Для вируса гриппа ожидаем total length в районе 13500bp??
+
+Попробуем вручную проставить initial k-mer coverage cutoff (флаг -n). Выбрала значение 14, потому что это половина от выставляемой platanus автоматически (вдохновлялась статьёй про [Platanus-allee](http://platanus.bio.titech.ac.jp/platanus2)).
+```bash
+./platanus assemble -s 0 -k 32 -n 14 -o genome_assembly/k32_n14/platanus_k32_n14 -f 7_S4_L001_R1_001.fastq 7_S4_L001_R2_001.fastq
+quast.py -o assembly_analysis/platanus_spades -m 0 --threads 1 k32_n14/platanus_k32_n14_contig.fa k32_s10/platanus_k32_s10_contig.fa k32/platanus_k32_contig.fa k39/platanus_k39_contig.fa k49/platanus_k49_contig.fa k63/platanus_k63_contig.fa spades/scaffolds.fasta
+```
+Получился по сути эффект обратный повышению step size of k-mer extension - total length выросла, а N50 сильно понизилось, количество контигов сильно выросло (=82, это не дело).
+
+А если объединим?  
+```bash
+./platanus assemble -s 10 -k 32 -n 14 -o genome_assembly/k32_s10_n14/platanus_k32_s10_n14 -f 7_S4_L001_R1_001.fastq 7_S4_L001_R2_001.fastq
+quast.py -o assembly_analysis/platanus_spades -m 0 --threads 1 k32_s10_n14/platanus_k32_s10_n14_contig.fa k32_n14/platanus_k32_n14_contig.fa k32_s10/platanus_k32_s10_contig.fa k32/platanus_k32_contig.fa k39/platanus_k39_contig.fa k49/platanus_k49_contig.fa k63/platanus_k63_contig.fa spades/scaffolds.fasta
+```
+Воот, вот это мне больше нравится по N50 (=434), контигам (n=20), правда, total length получилась неидеальная - 7566bp. Есть, куда улучшать.
+
+Возможно можно как-то увеличить качество ридов? Пробовала триммить с помощью Trim-galore, но особо не помогло (возможно, нужны какие-то специфические тулы? Musket, например - https://musket.sourceforge.net/homepage.htm)  
+
+Прочитала статью https://www.nature.com/articles/s41467-019-09575-2 и скачала [Platanus-allee](http://platanus.bio.titech.ac.jp/platanus2)
+```bash
+tar zxvf Platanus_allee_v2.2.2_Linux_x86_64.tgz
+./platanus_allee assemble -k 32 -o ../genome_assembly/k32/platanus_allee_k32 -f ../7_S4_L001_R1_001.fastq ../7_S4_L001_R2_001.fastq
+
+quast.py -o assembly_analysis/platanus_spades -m 0 --threads 2 k32/platanus_allee_k32_contig.fa k32_s10_n14/platanus_k32_s10_n14_contig.fa k32_n14/platanus_k32_n14_contig.fa k32_s10/platanus_k32_s10_contig.fa k32/platanus_k32_contig.fa k39/platanus_k39_contig.fa k49/platanus_k49_contig.fa k63/platanus_k63_contig.fa spades/scaffolds.fasta
+```
+=> очень плохо, скорее всего, потому что больше подходит для диплоидных (?), но пусть будет.
+
+## дозапустим bowtie и ALE
+```bash
+bowtie2-build k32/platanus_k32_contig.fa index/platanus_k32
+bowtie2 -x index/platanus_k32 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k32.sam # 87.43% overall alignment rate
+../ALE/src/ALE align/platanus_k32.sam k32/platanus_k32_contig.fa ALE_results/platanus_k32.ale # Total ALE Score: -2415113.221947
+
+bowtie2-build k32_n14/platanus_k32_n14_contig.fa index/platanus_k32_n14
+bowtie2 -x index/platanus_k32_n14 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k32_n14.sam #80.92% overall alignment rate
+../ALE/src/ALE align/platanus_k32_n14.sam k32_n14/platanus_k32_n14_contig.fa ALE_results/platanus_k32_n14.ale # Total ALE Score: -3842622.858044
+
+bowtie2-build k32_s10/platanus_k32_s10_contig.fa index/platanus_k32_s10
+bowtie2 -x index/platanus_k32_s10 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k32_s10.sam #87.27% overall alignment rate
+../ALE/src/ALE align/platanus_k32_s10.sam k32_s10/platanus_k32_s10_contig.fa ALE_results/platanus_k32_s10.ale # Total ALE Score: -2122450.542837
+
+bowtie2-build k32_s10_n14/platanus_k32_s10_n14_contig.fa index/platanus_k32_s10_n14
+bowtie2 -x index/platanus_k32_s10_n14 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_k32_s10_n14.sam #89.68% overall alignment rate
+../ALE/src/ALE align/platanus_k32_s10_n14.sam k32_s10_n14/platanus_k32_s10_n14_contig.fa ALE_results/platanus_k32_s10_n14.ale # Total ALE Score: -1889963.774072
+
+bowtie2-build k32/platanus_allee_k32_contig.fa index/platanus_allee_k32
+bowtie2 -x index/platanus_allee_k32 -1 ../7_S4_L001_R1_001.fastq -2 ../7_S4_L001_R2_001.fastq -S align/platanus_allee_k32.sam #62.16% overall alignment rate
+../ALE/src/ALE align/platanus_allee_k32.sam k32/platanus_allee_k32_contig.fa ALE_results/platanus_allee_k32.ale # Total ALE Score: -7767413.465383
+```
+В итоге, получилось, что в тройку лучших входят сборки **platanus_k32_s10_n14**, platanus_k32 и SPAdes. Хотя, возможно, platanus надо как-то ещё подрегулировать, чтобы получить total length побольше.  
